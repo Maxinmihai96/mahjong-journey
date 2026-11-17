@@ -26,7 +26,24 @@ header{transition:opacity .6s;display:flex;align-items:stretch;justify-content:s
 #board{position:relative;flex:1;margin:4px 4px}
 #tiles{position:absolute;left:0;top:0}
 .tile{position:absolute;border-radius:12%/9%;background:linear-gradient(150deg,#fffef8 0%,#f6efda 70%,#eadfbf 100%);
-  cursor:pointer;transition:transform .15s ease,opacity .3s ease,filter .2s ease,background .15s}
+  cursor:pointer;transition:transform .15s ease,opacity .3s ease,filter .2s ease,background .15s,left .5s ease,top .5s ease}
+.tile.soft{animation:soft 1.1s ease-in-out infinite alternate}
+@keyframes soft{from{outline:3px solid rgba(255,230,120,.2);outline-offset:-2px}to{outline:5px solid rgba(255,214,90,.95);outline-offset:0}}
+#tray{display:flex;justify-content:center;gap:8px;padding:6px 0 2px;transition:opacity .6s}
+#tray .slot{width:58px;height:76px;border-radius:12px;background:rgba(0,0,0,.38);box-shadow:inset 0 2px 8px rgba(0,0,0,.45);position:relative;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#tray.full .slot{box-shadow:inset 0 0 0 3px rgba(255,120,110,.85)}
+#tray.shake{animation:shake .32s}
+#tray .ttile,.flyer{border-radius:10px;background:linear-gradient(150deg,#fffef8 0%,#f6efda 70%,#eadfbf 100%);box-shadow:2px 3px 0 #cdb98a,3px 5px 6px rgba(0,0,0,.35)}
+#tray .ttile{position:absolute;inset:2px;cursor:pointer;animation:tpop .18s ease-out}
+#tray .ttile.hint{animation:pulse .7s ease-in-out infinite alternate}
+#tray .ttile.soft{animation:soft 1.1s ease-in-out infinite alternate}
+@keyframes tpop{from{transform:scale(.85)}}
+#tray .ttile svg,.flyer svg{position:absolute;inset:6% 7%;width:86%;height:88%;pointer-events:none}
+.flyer{position:fixed;z-index:140000;pointer-events:none;transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease}
+#praise{position:fixed;left:0;right:0;top:38%;text-align:center;pointer-events:none;z-index:130000}
+#praise b{display:inline-block;background:rgba(0,0,0,.4);padding:6px 26px;border-radius:22px;font-size:46px;font-weight:900;color:#fff;text-shadow:0 3px 0 #c98a0c,0 6px 18px rgba(0,0,0,.45);animation:praise 1.3s ease-out forwards}
+#praise span{display:block;font-size:20px;font-weight:800;color:#ffe59a;text-shadow:0 2px 8px rgba(0,0,0,.6);animation:praise 1.3s ease-out forwards}
+@keyframes praise{0%{transform:scale(.3);opacity:0}18%{transform:scale(1.15);opacity:1}30%{transform:scale(1)}75%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-40px)}}
 .tile svg{position:absolute;inset:6% 7%;width:86%;height:88%;pointer-events:none}
 .tile.locked{filter:brightness(.7) saturate(.75)}
 .tile.sel{background:linear-gradient(150deg,#fff8c9,#ffe47a);transform:translate(-2px,-4px);outline:4px solid #ffb300;outline-offset:-2px}
@@ -149,6 +166,7 @@ nav svg{width:28px;height:28px}
     <div class="stat"><b id="sPairs">0</b><span>Pairs left</span></div>
     <div class="stat"><b id="sMoves">0</b><span>Matches</span></div>
   </header>
+  <div id="tray"><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
   <div id="board"><div id="tiles"></div></div>
   <nav>
     <button id="bUndo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
@@ -170,6 +188,7 @@ nav svg{width:28px;height:28px}
 <canvas id="confetti"></canvas>
 <div id="toast"></div>
 <div id="caption"></div>
+<div id="praise"></div>
 
 <script id="core">
 /* ================= RNG ================= */
@@ -288,11 +307,25 @@ function diffForLevel(lv){if(lv>48)return .95;const c=Math.floor((lv-1)/PER_CH),
 
 function makeTiles(pos){
  const T=pos.map((p,i)=>({...p,id:i,kind:null,removed:false,el:null}));
- for(const t of T){t.above=[];t.left=[];t.right=[];
+ linkTiles(T);return T;
+}
+function linkTiles(T){
+ for(const t of T){t.above=[];t.left=[];t.right=[];if(t.removed)continue;
   for(const u of T){if(u===t)continue;const dx=u.x-t.x,dy=u.y-t.y;
    if(u.z>t.z&&Math.abs(dx)<2&&Math.abs(dy)<2)t.above.push(u);
    else if(u.z===t.z&&Math.abs(dy)<2){if(dx<0&&dx>=-2)t.left.push(u);else if(dx>0&&dx<=2)t.right.push(u)}}}
- return T;
+}
+/* When the remaining tiles can't be solved where they are (e.g. two twins stacked),
+   move them down onto free spots of the ground floor, near the centre. A single layer is always solvable. */
+function relocate(T,base){
+ const alive=T.filter(t=>!t.removed);
+ let spots=base.filter(p=>p.z===0);
+ if(spots.length<alive.length)spots=base.slice();
+ const cx=spots.reduce((a,p)=>a+p.x,0)/spots.length,cy=spots.reduce((a,p)=>a+p.y,0)/spots.length;
+ spots=spots.slice().sort((a,b)=>Math.hypot(a.x-cx,(a.y-cy)*1.3)-Math.hypot(b.x-cx,(b.y-cy)*1.3)).slice(0,alive.length);
+ spots.sort((a,b)=>a.y-b.y||a.x-b.x);
+ alive.sort((a,b)=>a.y-b.y||a.x-b.x).forEach((t,i)=>{t.x=spots[i].x;t.y=spots[i].y;t.z=spots[i].z});
+ linkTiles(T);
 }
 function isFreeG(t,g){return t.above.every(u=>g[u.id])&&(t.left.every(u=>g[u.id])||t.right.every(u=>g[u.id]))}
 function pickWeighted(arr,T){let tot=0;const w=arr.map(i=>{const v=1+T[i].z*3;tot+=v;return v});let r=RNG()*tot;
@@ -336,7 +369,7 @@ const CHAPTERS=[
 ];
 const PER=6;
 function showCaption(){const ch=chapterOf(level),ph=photoFor(ch,level);if(!ph)return;$('#caption').innerHTML=`<b>📍 ${ph.t}<span>${ch.name}, ${ch.country}</span></b>`;$('#caption').classList.add('show')}
-let curPhoto=null;
+let curPhoto=null,basePos=[],combo=0,lastMatch=0,idleT=null;
 /* Photos: one per level (6 per destination). f=file, t=place name, p=focus point */
 const PHOTOS={
  kyoto:{cover:5,list:[
@@ -490,7 +523,7 @@ function startGame(m,lv){
   level=lv;L=layoutForLevel(lv);diff=diffForLevel(lv);applyTheme(chapterOf(lv),lv);
  }
  layoutName=L.name;
- T=makeTiles(orient(L.pos));
+ basePos=orient(L.pos);T=makeTiles(basePos);combo=0;lastMatch=0;tray=[];drawTray();resetIdle();
  for(let i=0;i<40;i++){deal(T,T.map(t=>t.id),kindsFor(diff,T.length/2));if(countMoves(T)>=3)break}
  RNG=Math.random;
  render(true);
@@ -522,20 +555,82 @@ function refresh(){
  const alive=T.filter(t=>!t.removed).length;
  if(mode==='daily'){$('#sLevel').textContent='★';$('#sPlace').textContent='Daily';}
  else{$('#sLevel').textContent=level;$('#sPlace').textContent=chapterOf(level).name}
- $('#sPairs').textContent=alive/2;$('#sMoves').textContent=countMoves(T);
+ $('#sPairs').textContent=Math.ceil(T.filter(t=>!t.removed||t.inTray).length/2);$('#sMoves').textContent=movesAvail();
 }
-function clearHint(){clearTimeout(hintTimer);T.forEach(t=>t.el&&t.el.classList.remove('hint'))}
+function clearHint(){clearTimeout(hintTimer);T.forEach(t=>t.el&&t.el.classList.remove('hint','soft'));document.querySelectorAll('#tray .ttile').forEach(e=>e.classList.remove('hint','soft'))}
+function playing(){return T.some(t=>!t.removed||t.inTray)&&$('#ov').classList.contains('hidden')&&['#home','#map','#daily','#album'].every(s=>$(s).classList.contains('hidden'))}
+
+/* ================= Tray (4 slots) ================= */
+const TRAY_N=4;let tray=[];
+function snapshot(){return {s:T.map(t=>t.removed?(t.inTray?2:1):0),tray:tray.map(t=>t.id)}}
+function restoreSnap(sn){T.forEach((t,i)=>{t.removed=sn.s[i]>0;t.inTray=sn.s[i]===2;t.pending=false;t.el.classList.toggle('gone',t.removed)});tray=sn.tray.map(id=>T[id]);drawTray()}
+function drawTray(){
+ const slots=document.querySelectorAll('#tray .slot');
+ slots.forEach((sl,i)=>{const t=tray[i];
+  sl.innerHTML=t?`<div class="ttile" data-id="${t.id}">${face(t.kind)}</div>`:'';
+  const d=sl.querySelector('.ttile');if(d)d.addEventListener('click',()=>returnTile(t))});
+ $('#tray').classList.toggle('full',tray.length>=TRAY_N);
+}
+function trayFree(){return tray.filter(x=>!x.pending)}
+function movesAvail(){
+ const fr=freeTiles(T),tk=new Set(trayFree().map(t=>t.kind));let m=0;const c={};
+ fr.forEach(t=>{if(tk.has(t.kind))m++;else c[t.kind]=(c[t.kind]||0)+1});
+ for(const k in c)m+=Math.floor(c[k]/2);return m;
+}
+function fly(t,idx,cb){
+ const r=t.el.getBoundingClientRect(),sl=document.querySelectorAll('#tray .slot')[idx],r2=sl.getBoundingClientRect();
+ const d=document.createElement('div');d.className='flyer';d.innerHTML=face(t.kind);
+ Object.assign(d.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});document.body.appendChild(d);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>Object.assign(d.style,{left:(r2.left+2)+'px',top:(r2.top+2)+'px',width:(r2.width-4)+'px',height:(r2.height-4)+'px'})));
+ setTimeout(()=>{d.remove();cb&&cb()},320);
+}
+function findHint(){
+ const fr=freeTiles(T),tr=trayFree();
+ for(const t of fr){const m=tr.find(x=>x.kind===t.kind);if(m)return {board:[t],tray:m}}
+ const by={};for(const t of fr)(by[t.kind]=by[t.kind]||[]).push(t);
+ const p=Object.values(by).find(v=>v.length>=2);return p?{board:p.slice(0,2)}:null;
+}
+function showHint(h,cls){h.board.forEach(t=>t.el.classList.add(cls));if(h.tray){const e=document.querySelector(`#tray .ttile[data-id="${h.tray.id}"]`);if(e)e.classList.add(cls)}}
+function stuck(){return T.some(t=>!t.removed||t.inTray)&&movesAvail()===0&&(tray.length>=TRAY_N||freeTiles(T).length===0)}
+function resetIdle(){clearTimeout(idleT);T.forEach(t=>t.el&&t.el.classList.remove('soft'));document.querySelectorAll('#tray .ttile').forEach(e=>e.classList.remove('soft'));
+ if(save.autoHint===false)return;
+ idleT=setTimeout(()=>{if(!playing()){resetIdle();return}
+  const h=findHint();
+  if(h){showHint(h,'soft');toast(h.tray?'Need a little help? 👀<br>This tile matches one in your tray.':'Need a little help? 👀<br>These two tiles match.')}
+  else if(tray.length<TRAY_N&&freeTiles(T).length)toast('Tip: move a tile up to the tray<br>to uncover the ones below.');
+  else noMoves();
+ },20000)}
+
 function onTile(t){
- audio();
+ audio();resetIdle();
  if(t.removed||!$('#ov').classList.contains('hidden'))return;
  const g=T.map(x=>x.removed);
  if(!isFreeG(t,g)){t.el.classList.remove('shake');void t.el.offsetWidth;t.el.classList.add('shake');sfx.no();
   toast('This tile is blocked.<br>Pick a tile with a free side.');return}
  clearHint();
- if(sel===t){t.el.classList.remove('sel');sel=null;return}
- if(sel&&sel.kind===t.kind){match(sel,t);return}
- if(sel)sel.el.classList.remove('sel');
- sel=t;t.el.classList.add('sel');sfx.tap();
+ const m=trayFree().find(x=>x.kind===t.kind);
+ if(m){
+  hist.push(snapshot());m.pending=true;t.removed=true;t.inTray=false;
+  fly(t,tray.indexOf(m),()=>{
+   m.removed=true;m.inTray=false;m.pending=false;tray=tray.filter(x=>x!==m);drawTray();
+   afterMatch(t)});
+  t.el.classList.add('gone');refresh();return;
+ }
+ if(tray.length>=TRAY_N){
+  const pt=freeTiles(T).find(x=>x!==t&&x.kind===t.kind);
+  if(pt){hist.push(snapshot());t.removed=pt.removed=true;t.inTray=pt.inTray=false;
+   t.el.classList.add('gone');pt.el.classList.add('gone');sparks(pt);afterMatch(t);return}
+  const tr=$('#tray');tr.classList.remove('shake');void tr.offsetWidth;tr.classList.add('shake');sfx.no();
+  toast('The tray is full!<br>Tap a tile in the tray to put it back.');return}
+ hist.push(snapshot());t.removed=true;t.inTray=true;tray.push(t);
+ const idx=tray.length-1;fly(t,idx,()=>{drawTray();refresh();if(stuck())setTimeout(()=>{if(stuck())noMoves()},500)});
+ t.el.classList.add('gone');sfx.tap();refresh();
+}
+function returnTile(t){
+ audio();resetIdle();if(t.pending||!$('#ov').classList.contains('hidden'))return;
+ clearHint();hist.push(snapshot());
+ tray=tray.filter(x=>x!==t);t.removed=false;t.inTray=false;t.el.classList.remove('gone');
+ drawTray();sfx.tap();refresh();combo=0;
 }
 function sparks(t){
  const cols=['#ffd970','#ffffff','#7fe0b0','#ff9f80'];
@@ -545,41 +640,43 @@ function sparks(t){
   s.style.setProperty('--dx',Math.cos(a)*r+'px');s.style.setProperty('--dy',Math.sin(a)*r+'px');
   tilesEl.appendChild(s);setTimeout(()=>s.remove(),750)}
 }
-function match(a,b){
- a.removed=b.removed=true;hist.push([a.id,b.id]);sel=null;
- for(const t of [a,b]){t.el.classList.remove('sel');t.el.classList.add('gone');sparks(t)}
- sfx.match();refresh();
- const alive=T.filter(t=>!t.removed).length;
- if(alive===0){if(curPhoto&&mode==='level'){$('#shade').classList.remove('on');showCaption();document.querySelector('header').style.opacity=.15;document.querySelector('nav').style.opacity=.15;
-  setTimeout(()=>{document.querySelector('header').style.opacity='';document.querySelector('nav').style.opacity='';$('#caption').classList.remove('show');win()},2600)}else setTimeout(win,600)}
- else if(countMoves(T)===0)setTimeout(()=>noMoves(),700);
+function afterMatch(t){
+ sparks(t);sfx.match();refresh();
+ const now=Date.now();combo=(now-lastMatch<5000)?combo+1:1;lastMatch=now;
+ if(combo>=3){const W=['Nice!','Great!','Wow!','Amazing!','Fantastic!','Brilliant!','Unstoppable!'];
+  $('#praise').innerHTML=`<b>${W[Math.min(combo-3,W.length-1)]}</b><span>${combo} in a row!</span>`;
+  [784,988,1175,1319].slice(0,Math.min(4,combo-1)).forEach((f,i)=>tone(f,.1+i*.07,.25,'sine',.07))}
+ const left=T.filter(x=>!x.removed||x.inTray).length;
+ if(left===0){if(curPhoto&&mode==='level'){$('#shade').classList.remove('on');showCaption();document.querySelector('header').style.opacity=.15;document.querySelector('nav').style.opacity=.15;$('#tray').style.opacity=.15;
+  setTimeout(()=>{document.querySelector('header').style.opacity='';document.querySelector('nav').style.opacity='';$('#tray').style.opacity='';$('#caption').classList.remove('show');win()},2600)}else setTimeout(win,600)}
+ else if(stuck())setTimeout(()=>{if(stuck())noMoves()},700);
 }
 function undo(){
- audio();if(!hist.length){toast('Nothing to undo');return}
- clearHint();if(sel){sel.el.classList.remove('sel');sel=null}
- const [a,b]=hist.pop();for(const id of [a,b]){T[id].removed=false;T[id].el.classList.remove('gone')}
- sfx.tap();refresh();
+ audio();resetIdle();combo=0;if(!hist.length){toast('Nothing to undo');return}
+ if(T.some(t=>t.pending))return;
+ clearHint();restoreSnap(hist.pop());sfx.tap();refresh();
 }
 function hint(){
- audio();clearHint();
- const by={};for(const t of freeTiles(T))(by[t.kind]=by[t.kind]||[]).push(t);
- const pair=Object.values(by).find(v=>v.length>=2);
- if(!pair){noMoves();return}
- helps++;pair.slice(0,2).forEach(t=>t.el.classList.add('hint'));sfx.tap();
- hintTimer=setTimeout(clearHint,3000);
+ audio();clearHint();resetIdle();
+ const h=findHint();
+ if(h){helps++;showHint(h,'hint');sfx.tap();hintTimer=setTimeout(clearHint,3000);return}
+ if(tray.length<TRAY_N&&freeTiles(T).length){toast('Move a tile up to the tray<br>to uncover the ones below.');return}
+ noMoves();
 }
 function shuffle(){
- audio();clearHint();if(sel){sel.el.classList.remove('sel');sel=null}
+ audio();clearHint();resetIdle();combo=0;
+ if(T.some(t=>t.pending))return;
+ tray.forEach(t=>{t.removed=false;t.inTray=false;t.el.classList.remove('gone')});tray=[];drawTray();
  const alive=T.filter(t=>!t.removed);if(!alive.length)return;
  helps++;
  const cnt={};alive.forEach(t=>cnt[t.kind]=(cnt[t.kind]||0)+1);
  const pk=[];for(const k in cnt)for(let i=0;i<cnt[k]/2;i++)pk.push(k);
- const ok=deal(T,alive.map(t=>t.id),pk);
- if(!ok){const ks=shuffleArr(alive.map(t=>t.kind));alive.forEach((t,i)=>t.kind=ks[i])}
+ let ok=deal(T,alive.map(t=>t.id),pk);
+ if(!ok){relocate(T,basePos);ok=deal(T,alive.map(t=>t.id),pk);place();
+  if(!ok){const ks=shuffleArr(alive.map(t=>t.kind));alive.forEach((t,i)=>t.kind=ks[i])}}
  hist=[];
  alive.forEach(t=>{t.el.classList.remove('flip','enter');void t.el.offsetWidth;t.el.classList.add('flip');setTimeout(()=>{t.el.innerHTML=face(t.kind)},220)});
  sfx.shuffle();setTimeout(refresh,240);
- if(!ok)setTimeout(()=>{if(countMoves(T)===0)noMoves(true)},600);
 }
 
 /* ================= Confetti ================= */
@@ -649,6 +746,7 @@ function settingsHTML(){
  return `<button class="big secondary" data-a="snd">Sound: ${save.sound?'On':'Off'}</button>
  <button class="big secondary" data-a="mus">Relaxing music: ${save.music?'On':'Off'}</button>
  <button class="big secondary" data-a="hl">Dim blocked tiles: ${save.hl?'On':'Off'}</button>
+ <button class="big secondary" data-a="ah">Auto hint when stuck: ${save.autoHint!==false?'On':'Off'}</button>
  <button class="big secondary" data-a="dev" style="background:#ffe9b0">🔓 Test mode – unlock all: ${save.dev?'On':'Off'}</button>
  <div class="lbl">Background</div>
  <div class="opt">${th.slice(0,3).map(([k,n])=>`<button data-a="th" data-t="${k}" class="${save.theme===k?'on':''}" style="background:${col[k]}">${n}</button>`).join('')}</div>
@@ -658,6 +756,7 @@ function settingsActions(reopen){return{
  snd:()=>{save.sound=!save.sound;persist();reopen()},
  mus:()=>{save.music=!save.music;persist();save.music?startMusic():stopMusic();reopen()},
  hl:()=>{save.hl=!save.hl;persist();refresh();reopen()},
+ ah:()=>{save.autoHint=save.autoHint===false;persist();resetIdle();reopen()},
  dev:()=>{save.dev=!save.dev;persist();reopen()},
  th:b=>{save.theme=b.dataset.t;persist();applyTheme(mode==='level'&&T.length?chapterOf(level):CHAPTERS[Math.max(0,chapterIdx(save.level))%CHAPTERS.length]);reopen()}}}
 function menu(){
@@ -697,7 +796,7 @@ function showHome(){
 }
 function howTo(){
  overlay(`<h2>How to Play</h2>${logo}
- <p style="text-align:left">• Tap two <b>matching tiles</b> to clear them.<br>• A tile can be used when <b>nothing is on top</b> of it and its <b>left or right side is open</b>.<br>• Darker tiles are blocked for now.<br>• Clear all tiles to finish the level.<br>• Stuck? Use <b>Hint</b> or <b>Shuffle</b>. Every puzzle can be solved!</p>
+ <p style="text-align:left">• Tap a free tile to move it up to the <b>tray</b>.<br>• When two <b>matching tiles</b> meet in the tray, they disappear.<br>• The tray holds 4 tiles. Tap a tile in the tray to put it back.<br>• A tile can be used when <b>nothing is on top</b> of it and its <b>left or right side is open</b>.<br>• Darker tiles are blocked for now.<br>• Clear all tiles to finish the level.<br>• Stuck? Use <b>Hint</b> or <b>Shuffle</b>. Every puzzle can be solved!</p>
  <button class="big primary" data-a="ok">Got it</button>`,{ok:closeOv});
 }
 /* ================= Photo album ================= */
