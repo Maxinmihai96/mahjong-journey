@@ -603,7 +603,7 @@ function refresh(){
  for(const t of T){if(t.removed)continue;t.el.classList.toggle('locked',save.hl&&!isFreeG(t,g))}
  const alive=T.filter(t=>!t.removed).length;
  if(mode==='daily'){$('#sLevel').textContent='★';$('#sPlace').textContent='Daily';}
- else{$('#sLevel').textContent=level;$('#sPlace').textContent=chapterOf(level).name}
+ else{$('#sLevel').textContent=level;$('#sPlace').textContent=chapterOf(level).name+(roundOf(level)>1?' · R'+roundOf(level):'')}
  $('#sPairs').textContent=Math.ceil(T.filter(t=>!t.removed||t.inTray).length/2);$('#sMoves').textContent=movesAvail();
 }
 function clearHint(){clearTimeout(hintTimer);T.forEach(t=>t.el&&t.el.classList.remove('hint','soft'));document.querySelectorAll('#tray .ttile').forEach(e=>e.classList.remove('hint','soft'))}
@@ -776,7 +776,17 @@ function win(){
  {next:()=>{closeOv();if(chapDone&&first)showPostcard(chapterOf(level),level+1);else startGame('level',level+1)},map:()=>{closeOv();showMap()}});
  [...$('#ovc').querySelectorAll('.stars svg.on')].forEach((s,i)=>s.style.animationDelay=(.2+i*.25)+'s');
 }
+function roundOf(lv){return Math.floor((lv-1)/(PER*CHAPTERS.length))+1}
+function rLabel(lv){const r=roundOf(lv);return r>1?` · Round ${r}`:''}
+function showTourDone(ch,nextLv){
+ sfx.post();confetti();const r=roundOf(nextLv-1);
+ overlay(`<h2>🌍 World Tour Complete!</h2>${postcard(ch)}<p>You visited all <b>8 destinations</b>${r>1?` for the ${r===2?'second':r===3?'third':r+'th'} time`:''}. What a journey!</p>
+ <p style="background:#fff3cd;border-radius:14px;padding:12px;font-size:17px">✈️ <b>New destinations coming soon!</b><br>Meanwhile, start <b>Round ${r+1}</b> with bigger, trickier boards.</p>
+ <button class="big gold" data-a="go">Start Round ${r+1}</button><button class="big secondary" data-a="map">Journey Map</button>`,
+ {go:()=>{closeOv();startGame('level',nextLv)},map:()=>{closeOv();showMap()}});
+}
 function showPostcard(ch,nextLv){
+ if((nextLv-1)%(PER*CHAPTERS.length)===0){showTourDone(ch,nextLv);return}
  sfx.post();confetti();const nx=chapterOf(nextLv);
  overlay(`<h2>New Postcard!</h2>${postcard(ch)}<p>You finished your visit to <b>${ch.name}</b>.<br>Next stop: <b>${nx.name}, ${nx.country}</b></p>
  <button class="big primary" data-a="go">Travel to ${nx.name}</button><button class="big secondary" data-a="map">Journey Map</button>`,
@@ -833,7 +843,7 @@ function showHome(){
  $('#homeScene').innerHTML=save.theme==='journey'&&!ph?sceneSVG(ch.scene):'';
  const st=streak(),doneToday=!!save.daily[todayKey()];
  $('#homeWrap').innerHTML=`${logo}<h1>Mahjong Big Tiles</h1><p class="sub">Relaxing tile matching with extra‑large tiles</p>
- <div class="pill">📍 ${ch.name}, ${ch.country}</div>
+ <div class="pill">📍 ${ch.name}, ${ch.country}${rLabel(save.level)}</div>
  <button class="big gold" data-a="play">▶ Play Level ${save.level}</button>
  <button class="big glass" data-a="daily">📅 Daily Challenge ${doneToday?'✓':''}${st?` · 🔥${st}`:''}</button>
  <button class="big glass" data-a="map">🗺️ Journey Map</button>
@@ -888,8 +898,9 @@ function showMap(){
  let h=`<div class="topbar"><button class="back" data-a="home">‹ Home</button><h2>Your Journey</h2></div>`;
  for(let c=0;c<maxCh;c++){
   const ch=CHAPTERS[c%CHAPTERS.length],first=c*PER+1,lockedCh=first>save.level&&!save.dev,done=save.level>first+PER-1;
+  if(c>0&&c%CHAPTERS.length===0)h+=`<div class="pill" style="display:block;text-align:center;margin:6px 0 14px;font-size:19px">🌍 World Tour complete! · Round ${c/CHAPTERS.length+1}</div>`;
   h+=`<div class="chap ${lockedCh?'locked':''}" id="chap${c}"><div class="thumb" data-c="${c}">${pic(ch)}
-   <div class="ct">${done?'✉️ Postcard collected':lockedCh?'🔒 Locked':'✈️ Visiting now'}</div><div class="nm">${c>=CHAPTERS.length?'↻ ':''}${ch.name}</div></div><div class="lvls">`;
+   <div class="ct">${done?'✉️ Postcard collected':lockedCh?'🔒 Locked':'✈️ Visiting now'}</div><div class="nm">${ch.name}${c>=CHAPTERS.length?`<span style="font-size:17px;opacity:.9"> · Round ${Math.floor(c/CHAPTERS.length)+1}</span>`:''}</div></div><div class="lvls">`;
   for(let l=first;l<first+PER;l++){const s=save.stars[l]||0,un=l<=save.level||save.dev;
    h+=`<div><button class="lv ${l===save.level?'cur':''}" ${un?'':'disabled'} data-l="${l}">${un?l:'🔒'}</button><span class="lvs">${s?'★'.repeat(s)+'☆'.repeat(3-s):''}</span></div>`}
   h+=`</div></div>`;
