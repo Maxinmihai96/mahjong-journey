@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Mahjong Journey">
+<meta name="apple-mobile-web-app-title" content="Big Tile Mahjong">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#123629">
-<title>Mahjong Journey: Big Tiles</title>
+<title>Big Tile Mahjong: World Trip</title>
 <link rel="icon" href="data:,">
 <style>
 :root{--bg1:#2e7d62;--bg2:#123629}
@@ -787,7 +787,7 @@ function win(){
  overlay(`<h2>${msgs[rnd(msgs.length)]}</h2><div class="stars">${STAR(stars>=1)}${STAR(stars>=2)}${STAR(stars>=3)}</div>
  <p>You cleared <b>Level ${level}</b>.${stars<3?'<br><span style="font-size:16px">Finish without Hint or Shuffle for 3 stars.</span>':''}</p>
  <button class="big primary" data-a="next">${chapDone&&first?'Collect Postcard':'Next Level'}</button>
- <button class="big secondary" data-a="map">Journey Map</button>`,
+ <button class="big secondary" data-a="map">World Map</button>`,
  {next:()=>{closeOv();if(chapDone&&first)showPostcard(chapterOf(level),level+1);else startGame('level',level+1)},map:()=>{closeOv();showMap()}});
  [...$('#ovc').querySelectorAll('.stars svg.on')].forEach((s,i)=>s.style.animationDelay=(.2+i*.25)+'s');
 }
@@ -797,14 +797,14 @@ function showTourDone(ch,nextLv){
  sfx.post();confetti();const r=roundOf(nextLv-1);
  overlay(`<h2>🌍 World Tour Complete!</h2>${postcard(ch)}<p>You visited all <b>8 destinations</b>${r>1?` for the ${r===2?'second':r===3?'third':r+'th'} time`:''}. What a journey!</p>
  <p style="background:#fff3cd;border-radius:14px;padding:12px;font-size:17px">✈️ <b>New destinations coming soon!</b><br>Meanwhile, start <b>Round ${r+1}</b> with bigger, trickier boards.</p>
- <button class="big gold" data-a="go">Start Round ${r+1}</button><button class="big secondary" data-a="map">Journey Map</button>`,
+ <button class="big gold" data-a="go">Start Round ${r+1}</button><button class="big secondary" data-a="map">World Map</button>`,
  {go:()=>{closeOv();startGame('level',nextLv)},map:()=>{closeOv();showMap()}});
 }
 function showPostcard(ch,nextLv){
  if((nextLv-1)%(PER*CHAPTERS.length)===0){showTourDone(ch,nextLv);return}
  sfx.post();confetti();const nx=chapterOf(nextLv);
  overlay(`<h2>New Postcard!</h2>${postcard(ch)}<p>You finished your visit to <b>${ch.name}</b>.<br>Next stop: <b>${nx.name}, ${nx.country}</b></p>
- <button class="big primary" data-a="go">Travel to ${nx.name}</button><button class="big secondary" data-a="map">Journey Map</button>`,
+ <button class="big primary" data-a="go">Travel to ${nx.name}</button><button class="big secondary" data-a="map">World Map</button>`,
  {go:()=>{closeOv();startGame('level',nextLv)},map:()=>{closeOv();showMap()}});
 }
 function noMoves(hard){
@@ -822,7 +822,7 @@ function credits(back){
  overlay(h+'</div><button class="big primary" data-a="ok">Close</button>',{ok:back});
 }
 function settingsHTML(){
- const th=Object.entries({journey:'Journey',green:'Green',blue:'Blue',warm:'Warm',night:'Night'});
+ const th=Object.entries({journey:'Travel',green:'Green',blue:'Blue',warm:'Warm',night:'Night'});
  const col={journey:'linear-gradient(135deg,#2e7d62,#3d6699,#b9803c)',green:'#2e7d62',blue:'#2f6ea8',warm:'#a0603a',night:'#2a2a33'};
  return `<button class="big secondary" data-a="snd">Sound: ${save.sound?'On':'Off'}</button>
  <button class="big secondary" data-a="mus">Relaxing music: ${save.music?'On':'Off'}</button>
@@ -845,7 +845,7 @@ function menu(){
  overlay(`<h2>Menu</h2>
  <button class="big primary" data-a="resume">Resume</button>
  <button class="big secondary" data-a="restart">Restart</button>
- <button class="big secondary" data-a="map">Journey Map</button>
+ <button class="big secondary" data-a="map">World Map</button>
  <button class="big secondary" data-a="home">Home</button>
  ${settingsHTML()}`,
  Object.assign({resume:closeOv,restart:()=>{closeOv();restart()},map:()=>{closeOv();showMap()},home:()=>{closeOv();showHome()}},settingsActions(menu)));
@@ -864,11 +864,11 @@ function showHome(){
  $('#home').style.background=ph?`linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.65)),url(${ph.f}) ${ph.p}/cover`:'';
  $('#homeScene').innerHTML=save.theme==='journey'&&!ph?sceneSVG(ch.scene):'';
  const st=streak(),doneToday=!!save.daily[todayKey()];
- $('#homeWrap').innerHTML=`${logo}<h1>Mahjong Journey</h1><p class="sub">Big tiles · Travel the world one puzzle at a time</p>
+ $('#homeWrap').innerHTML=`${logo}<h1>Big Tile Mahjong</h1><p class="sub">World Trip · Travel the world one puzzle at a time</p>
  <div class="pill">📍 ${ch.name}, ${ch.country}${rLabel(save.level)}</div>
  <button class="big gold" data-a="play">▶ Play Level ${save.level}</button>
  <button class="big glass" data-a="daily">📅 Daily Challenge ${doneToday?'✓':''}${st?` · 🔥${st}`:''}</button>
- <button class="big glass" data-a="map">🗺️ Journey Map</button>
+ <button class="big glass" data-a="map">🗺️ World Map</button>
  <button class="big glass" data-a="album">🖼️ Photo Album</button>
  <button class="big glass" data-a="set">⚙️ Settings</button>
  <button class="big glass" data-a="how" style="min-height:50px;font-size:18px">How to play</button>`;
@@ -917,7 +917,7 @@ $('#viewer').addEventListener('touchend',e=>{if(tx==null)return;const dx=e.chang
 function showMap(){
  hideScreens();applyTheme(curChapter());
  const maxCh=Math.max(chapterIdx(save.level)+1,CHAPTERS.length);
- let h=`<div class="topbar"><button class="back" data-a="home">‹ Home</button><h2>Your Journey</h2></div>`;
+ let h=`<div class="topbar"><button class="back" data-a="home">‹ Home</button><h2>Your World Trip</h2></div>`;
  for(let c=0;c<maxCh;c++){
   const ch=CHAPTERS[c%CHAPTERS.length],first=c*PER+1,lockedCh=first>save.level&&!save.dev,done=save.level>first+PER-1;
   if(c>0&&c%CHAPTERS.length===0)h+=`<div class="pill" style="display:block;text-align:center;margin:6px 0 14px;font-size:19px">🌍 World Tour complete! · Round ${c/CHAPTERS.length+1}</div>`;
